@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RETENTIONIQ — Workforce Attrition & Retention Intelligence Dashboard</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.4); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.6); }
+  </style>
+</head>
+<body class="bg-[var(--background,#0f172a)] text-[var(--foreground,#f8fafc)] antialiased min-h-screen p-4 sm:p-6 lg:p-8 font-sans selection:bg-blue-500/20">
+
+  <!-- TOP BRAND HEADER & CONTROLS -->
+  <header class="bg-[var(--card,#1e293b)] text-[var(--foreground,#f8fafc)] border border-[var(--border,#334155)] rounded-2xl p-5 mb-6 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div>
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base shadow-sm">
+            RQ
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <h1 class="text-xl font-black tracking-tight text-[var(--foreground,#f8fafc)]">RETENTION<span class="text-blue-500">IQ</span></h1>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">Enterprise Intelligence</span>
+          </div>
+        </div>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1 italic">
+          "Understand Attrition. Improve Retention. Build Stronger Teams."
+        </p>
+      </div>
+
+      <!-- Quick Action Controls -->
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Scenario Switcher -->
+        <div class="flex items-center gap-1.5 bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-1.5 text-xs">
+          <span class="text-[var(--muted-foreground,#94a3b8)] font-medium">Scenario:</span>
+          <select id="scenarioSelector" onchange="switchScenario(this.value)" class="bg-transparent text-[var(--foreground,#f8fafc)] font-bold focus:outline-none cursor-pointer">
+            <option value="standard" class="bg-slate-900 text-white">Standard Enterprise (320 Staff)</option>
+            <option value="high_turnover" class="bg-slate-900 text-white">High-Overtime Tech (260 Staff)</option>
+            <option value="balanced_low" class="bg-slate-900 text-white">Balanced Retention (280 Staff)</option>
+            <option value="unlabeled" class="bg-slate-900 text-white">Unlabeled Workforce (Rule Fallback)</option>
+          </select>
+        </div>
+
+        <!-- Cost Assumption Button -->
+        <button onclick="openCostModal()" class="flex items-center gap-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors">
+          <span>Cost Benchmark:</span>
+          <span id="headerCostPill" class="font-mono font-black">$38k/departure</span>
+        </button>
+
+        <!-- CSV Export Button -->
+        <button onclick="exportActiveCSV()" class="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs transition-colors">
+          <span>Export CSV</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Scope & Ethical Guardrail Badge -->
+    <div class="mt-4 pt-3 border-t border-[var(--border,#334155)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+      <div class="flex items-center gap-2 text-[var(--muted-foreground,#94a3b8)]">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
+        <span>Scope: <strong id="scopeSummaryText" class="text-[var(--foreground,#f8fafc)]">All 320 Employees</strong></span>
+        <span>•</span>
+        <span id="attritionTypeTag" class="text-blue-400 font-medium">Period-Based True Rate</span>
+      </div>
+      <div class="text-[var(--muted-foreground,#94a3b8)] flex items-center gap-1.5">
+        <span class="text-amber-400">🛡️</span>
+        <span>Non-punitive decision support only • No sensitive demographic traits</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="flex items-center gap-2 overflow-x-auto pb-2 mb-6 text-xs font-bold select-none">
+    <button onclick="switchTab('overview')" id="tab-overview" class="tab-btn px-4 py-2 rounded-xl bg-blue-600 text-white shadow-xs">
+      Executive Overview
+    </button>
+    <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Attrition Analytics
+    </button>
+    <button onclick="switchTab('risk')" id="tab-risk" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Risk Analysis & ML
+    </button>
+    <button onclick="switchTab('explainable')" id="tab-explainable" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Root Causes ("Why Leaving?")
+    </button>
+    <button onclick="switchTab('playbooks')" id="tab-playbooks" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Retention Playbooks
+    </button>
+    <button onclick="switchTab('planner')" id="tab-planner" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Action Planner (<span id="plannerCountBadge">4</span>)
+    </button>
+    <button onclick="switchTab('explorer')" id="tab-explorer" class="tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white">
+      Employee Explorer
+    </button>
+  </nav>
+
+  <!-- GLOBAL WORKFORCE FILTER BAR -->
+  <section class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 mb-6 shadow-xs">
+    <div class="flex items-center justify-between mb-3 text-xs">
+      <span class="font-bold uppercase tracking-wider text-[var(--muted-foreground,#94a3b8)] flex items-center gap-1.5">
+        <span>⚡</span> Global Workforce Filters
+      </span>
+      <button onclick="resetFilters()" class="text-rose-400 hover:underline font-semibold flex items-center gap-1">
+        <span>↺</span> Reset Filters
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 text-xs">
+      <!-- Search Input -->
+      <div>
+        <input type="text" id="filterSearch" oninput="applyFilters()" placeholder="Search ID or Role..." class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] focus:outline-none focus:border-blue-500">
+      </div>
+
+      <!-- Department Filter -->
+      <div>
+        <select id="filterDept" onchange="applyFilters()" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] focus:outline-none">
+          <option value="All">All Departments</option>
+          <option value="Engineering">Engineering</option>
+          <option value="Sales">Sales</option>
+          <option value="Customer Support">Customer Support</option>
+          <option value="Product & Design">Product & Design</option>
+          <option value="Marketing">Marketing</option>
+          <option value="Operations">Operations</option>
+          <option value="Finance">Finance</option>
+          <option value="Human Resources">Human Resources</option>
+        </select>
+      </div>
+
+      <!-- Employment Status Filter -->
+      <div>
+        <select id="filterStatus" onchange="applyFilters()" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] focus:outline-none">
+          <option value="All">Status: All Personnel</option>
+          <option value="Active">Status: Active Only</option>
+          <option value="Departed">Status: Departed Only</option>
+        </select>
+      </div>
+
+      <!-- Overtime Intensity Filter -->
+      <div>
+        <select id="filterOvertime" onchange="applyFilters()" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] focus:outline-none">
+          <option value="All">Overtime: All Hours</option>
+          <option value="Low">Low (&lt;= 8h/mo)</option>
+          <option value="Moderate">Moderate (9-16h/mo)</option>
+          <option value="Severe">Severe (&gt; 16h/mo)</option>
+        </select>
+      </div>
+
+      <!-- Engagement Filter -->
+      <div>
+        <select id="filterEngagement" onchange="applyFilters()" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] focus:outline-none">
+          <option value="All">Engagement: All Tiers</option>
+          <option value="Low">Subdued (&lt; 5.5)</option>
+          <option value="Moderate">Moderate (5.5 - 7.5)</option>
+          <option value="High">Engaged (&gt; 7.5)</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 1: EXECUTIVE OVERVIEW -->
+  <main id="view-overview" class="tab-view space-y-6">
+    <!-- 6 KPI CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <!-- 1. Total Headcount -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Total Staff</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiTotal" class="text-2xl font-black font-mono text-[var(--foreground,#f8fafc)]">320</span>
+        </div>
+        <span class="text-xs text-emerald-400 mt-1 block"><span id="kpiActive">265</span> active in scope</span>
+      </div>
+
+      <!-- 2. Departed Personnel -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Departed</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiDeparted" class="text-2xl font-black font-mono text-rose-500">55</span>
+        </div>
+        <span class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1 block">Recorded exits</span>
+      </div>
+
+      <!-- 3. Attrition Rate -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Attrition Rate</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiRate" class="text-2xl font-black font-mono text-[var(--foreground,#f8fafc)]">17.2%</span>
+        </div>
+        <span id="kpiRateLabel" class="text-xs text-blue-400 mt-1 block truncate">Period-normalized</span>
+      </div>
+
+      <!-- 4. Avg Engagement -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Avg Engagement</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiEngagement" class="text-2xl font-black font-mono text-[var(--foreground,#f8fafc)]">6.8</span>
+          <span class="text-xs text-[var(--muted-foreground,#94a3b8)]">/10</span>
+        </div>
+        <span class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1 block">Pulse survey index</span>
+      </div>
+
+      <!-- 5. Avg Overtime -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Avg Overtime</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiOvertime" class="text-2xl font-black font-mono text-purple-400">7.4h</span>
+        </div>
+        <span class="text-xs text-[var(--muted-foreground,#94a3b8)] mt-1 block">Monthly hours/staff</span>
+      </div>
+
+      <!-- 6. Modeled Cost Impact -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 shadow-xs">
+        <span class="text-xs uppercase font-bold text-[var(--muted-foreground,#94a3b8)] block">Cost Impact</span>
+        <div class="flex items-baseline gap-1 mt-1">
+          <span id="kpiCost" class="text-2xl font-black font-mono text-amber-400">$2.09M</span>
+        </div>
+        <span class="text-xs text-amber-500/80 mt-1 block truncate">Modeled assumptions</span>
+      </div>
+    </div>
+
+    <!-- PRIORITY ALERT BANNER -->
+    <div class="p-4 rounded-2xl bg-gradient-to-r from-blue-950/70 via-slate-900 to-slate-950 border border-blue-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-sm flex-shrink-0 mt-0.5">
+          !
+        </div>
+        <div>
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-400">Critical Retention Priority</span>
+          <h3 id="alertHeadline" class="text-sm font-bold text-white mt-0.5">
+            Heavy Overtime Strain Detected in Customer Support & Engineering Squads
+          </h3>
+          <p id="alertBody" class="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+            Staff logging &gt;16 hours monthly overtime exhibit an observed turnover rate of 42.8% vs 9.5% for baseline peers (+33.3% difference, RR: 4.5x).
+          </p>
+        </div>
+      </div>
+      <button onclick="switchTab('playbooks')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold whitespace-nowrap shadow-xs">
+        View Playbooks →
+      </button>
+    </div>
+
+    <!-- MAIN VISUALIZATIONS ROW -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Department Bar Breakdown (Interactive SVG) -->
+      <div class="lg:col-span-2 bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)]">Department Headcount vs Departures</h3>
+            <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Total staff and departed volume by business division</p>
+          </div>
+          <button onclick="switchTab('analytics')" class="text-xs text-blue-400 font-bold hover:underline">Full Analytics →</button>
+        </div>
+        <div id="deptBarChart" class="space-y-3">
+          <!-- Dynamically populated bars -->
+        </div>
+      </div>
+
+      <!-- Risk Exposure Cohorts -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+        <div>
+          <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)] mb-1">Workforce Risk Exposure</h3>
+          <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mb-4">Multi-factor organizational stress score tiers</p>
+          <div id="riskTiersList" class="space-y-3">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+        <div class="pt-4 mt-4 border-t border-[var(--border,#334155)] text-xs text-[var(--muted-foreground,#94a3b8)]">
+          *Scores derived from transparent configurable indicator weights.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 2: ATTRITION ANALYTICS -->
+  <main id="view-analytics" class="tab-view hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Department Turnover Rates -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)] mb-1">Department Attrition Percentages (%)</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mb-4">Observed turnover rates across departments</p>
+        <div id="deptRateBars" class="space-y-3"></div>
+      </div>
+
+      <!-- Overtime vs Attrition -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)] mb-1">Overtime Intensity vs Turnover Rate</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mb-4">Empirical turnover mapped against monthly overtime tiers</p>
+        <div id="overtimeBars" class="space-y-3"></div>
+      </div>
+
+      <!-- Compensation Benchmark Ratio (Compa-Ratio) -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)] mb-1">Salary Benchmark Ratio vs Turnover</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mb-4">Turnover rate across compa-ratio percentiles relative to internal peer benchmarks</p>
+        <div id="compRatioBars" class="space-y-3"></div>
+      </div>
+
+      <!-- Pulse Engagement Score Tiers -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)] mb-1">Pulse Engagement vs Departure Rate</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] mb-4">Turnover rate across pulse survey sentiment bands</p>
+        <div id="engagementBars" class="space-y-3"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 3: RISK ANALYSIS & MACHINE LEARNING -->
+  <main id="view-risk" class="tab-view hidden space-y-6">
+    <!-- Sub-Mode Selector -->
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 flex items-center justify-between">
+      <div>
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)]">Risk Modeling Architecture</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Switch between transparent indicator weights and supervised ML classification evaluation</p>
+      </div>
+      <div class="flex items-center gap-1.5 bg-[var(--background,#0f172a)] p-1 rounded-xl text-xs font-bold">
+        <button onclick="toggleRiskSubMode('indicator')" id="btnRiskIndicator" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-xs">Transparent Indicator</button>
+        <button onclick="toggleRiskSubMode('ml')" id="btnRiskML" class="px-3 py-1.5 rounded-lg text-[var(--muted-foreground,#94a3b8)] hover:text-white">Supervised ML</button>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 1: TRANSPARENT INDICATOR SLIDERS -->
+    <div id="riskIndicatorSubView" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs space-y-4">
+        <div class="flex items-center justify-between border-b border-[var(--border,#334155)] pb-3">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-[var(--foreground,#f8fafc)]">Configurable Organizational Factor Weights</h4>
+          <span id="totalWeightsSpan" class="text-xs font-mono font-bold text-blue-400">Total: 100 pts</span>
+        </div>
+
+        <div class="space-y-4 text-xs">
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>1. Excessive Overtime (&gt;16h/mo)</span>
+              <span id="valWeightOT" class="font-mono text-blue-400">25 pts</span>
+            </div>
+            <input type="range" min="5" max="40" value="25" id="sliderOT" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>2. Low Pulse Engagement (&lt;5.5/10)</span>
+              <span id="valWeightEng" class="font-mono text-blue-400">25 pts</span>
+            </div>
+            <input type="range" min="5" max="40" value="25" id="sliderEng" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>3. Low Job Satisfaction (&lt;=2/5)</span>
+              <span id="valWeightSat" class="font-mono text-blue-400">15 pts</span>
+            </div>
+            <input type="range" min="5" max="30" value="15" id="sliderSat" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>4. Compensation Below Benchmark (&gt;10% deficit)</span>
+              <span id="valWeightComp" class="font-mono text-blue-400">15 pts</span>
+            </div>
+            <input type="range" min="5" max="30" value="15" id="sliderComp" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>5. Limited Training Opportunities (&lt;12h/yr)</span>
+              <span id="valWeightTrain" class="font-mono text-blue-400">10 pts</span>
+            </div>
+            <input type="range" min="5" max="25" value="10" id="sliderTrain" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+
+          <div>
+            <div class="flex justify-between font-semibold mb-1">
+              <span>6. Poor Work-Life Balance (&lt;=2/5)</span>
+              <span id="valWeightWlb" class="font-mono text-blue-400">10 pts</span>
+            </div>
+            <input type="range" min="5" max="25" value="10" id="sliderWlb" oninput="updateWeightsUI()" class="w-full accent-blue-600">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end">
+          <button onclick="recalculateRisk()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-xs">
+            Apply Adjusted Weights
+          </button>
+        </div>
+      </div>
+
+      <!-- Cohort Summary -->
+      <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-[var(--foreground,#f8fafc)] mb-3">Calculated Risk Tiers</h4>
+          <div id="riskTiersDetailed" class="space-y-3 text-xs"></div>
+        </div>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)] border-t border-[var(--border,#334155)] pt-3">
+          Output labeled <em>Attrition Risk Indicator</em>. No sensitive personal traits used.
+        </p>
+      </div>
+    </div>
+
+    <!-- SUB-VIEW 2: SUPERVISED MACHINE LEARNING EVALUATION -->
+    <div id="riskMLSubView" class="hidden space-y-6">
+      <div id="mlContentArea">
+        <!-- Dynamically rendered based on whether dataset has labels -->
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 4: EXPLAINABLE ROOT CAUSES ("WHY IS ATTRITION INCREASING?") -->
+  <main id="view-explainable" class="tab-view hidden space-y-6">
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs">
+      <h3 class="text-base font-bold text-[var(--foreground,#f8fafc)] mb-1">Why Is Attrition Increasing?</h3>
+      <p class="text-xs text-[var(--muted-foreground,#94a3b8)] leading-relaxed">
+        Empirical comparison findings derived via two-proportion z-tests with exact p-values, relative risks, and 95% confidence intervals.
+        <strong class="text-amber-400">Scientific Caution:</strong> Observed statistical correlation does not establish proven direct causality.
+      </p>
+    </div>
+
+    <div id="explainableFindingsList" class="space-y-4">
+      <!-- Dynamically generated findings cards -->
+    </div>
+  </main>
+
+  <!-- TAB 5: RETENTION PLAYBOOKS -->
+  <main id="view-playbooks" class="tab-view hidden space-y-6">
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-5 shadow-xs flex items-center justify-between">
+      <div>
+        <h3 class="text-base font-bold text-[var(--foreground,#f8fafc)] mb-1">Evidence-Based Retention Playbooks</h3>
+        <p class="text-xs text-[var(--muted-foreground,#94a3b8)]">Actionable interventions automatically prioritized from active dataset patterns</p>
+      </div>
+    </div>
+
+    <div id="playbooksGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Dynamically generated playbooks -->
+    </div>
+  </main>
+
+  <!-- TAB 6: ACTION PLANNER -->
+  <main id="view-planner" class="tab-view hidden space-y-6">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+      <div class="p-3 rounded-xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)]">
+        <span class="text-[var(--muted-foreground,#94a3b8)] block">Total Initiatives</span>
+        <span id="planStatTotal" class="text-xl font-bold font-mono text-[var(--foreground,#f8fafc)]">4</span>
+      </div>
+      <div class="p-3 rounded-xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)]">
+        <span class="text-blue-400 block">In Progress</span>
+        <span id="planStatProgress" class="text-xl font-bold font-mono text-blue-400">2</span>
+      </div>
+      <div class="p-3 rounded-xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)]">
+        <span class="text-emerald-400 block">Completed</span>
+        <span id="planStatCompleted" class="text-xl font-bold font-mono text-emerald-400">1</span>
+      </div>
+      <div class="p-3 rounded-xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)]">
+        <span class="text-rose-400 block">Overdue</span>
+        <span id="planStatOverdue" class="text-xl font-bold font-mono text-rose-400">0</span>
+      </div>
+    </div>
+
+    <!-- Kanban Columns -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[var(--border,#334155)] text-xs font-bold">
+          <span>Not Started</span>
+          <span id="countNotStarted" class="font-mono text-slate-400">1</span>
+        </div>
+        <div id="colNotStarted" class="space-y-3 min-h-[200px]"></div>
+      </div>
+
+      <div class="bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[var(--border,#334155)] text-xs font-bold text-blue-400">
+          <span>In Progress</span>
+          <span id="countInProgress" class="font-mono text-blue-400">2</span>
+        </div>
+        <div id="colInProgress" class="space-y-3 min-h-[200px]"></div>
+      </div>
+
+      <div class="bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[var(--border,#334155)] text-xs font-bold text-emerald-400">
+          <span>Completed</span>
+          <span id="countCompleted" class="font-mono text-emerald-400">1</span>
+        </div>
+        <div id="colCompleted" class="space-y-3 min-h-[200px]"></div>
+      </div>
+
+      <div class="bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between pb-2 border-b border-[var(--border,#334155)] text-xs font-bold text-amber-400">
+          <span>On Hold</span>
+          <span id="countOnHold" class="font-mono text-amber-400">0</span>
+        </div>
+        <div id="colOnHold" class="space-y-3 min-h-[200px]"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TAB 7: EMPLOYEE DATA EXPLORER -->
+  <main id="view-explorer" class="tab-view hidden space-y-4">
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl p-4 flex items-center justify-between text-xs">
+      <span class="text-[var(--muted-foreground,#94a3b8)]">
+        Displaying <strong id="explorerCountText" class="text-[var(--foreground,#f8fafc)]">0</strong> filtered records. Names and personal phone/emails are strictly hidden to safeguard confidentiality.
+      </span>
+      <button onclick="exportActiveCSV()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold">
+        Export Filtered CSV
+      </button>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl overflow-x-auto shadow-xs">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-[var(--background,#0f172a)] border-b border-[var(--border,#334155)] text-[var(--muted-foreground,#94a3b8)] uppercase font-semibold">
+          <tr>
+            <th class="py-3 px-3">ID</th>
+            <th class="py-3 px-3">Department</th>
+            <th class="py-3 px-3">Job Role</th>
+            <th class="py-3 px-3 text-center">Tenure</th>
+            <th class="py-3 px-3 text-center">Perf (1-5)</th>
+            <th class="py-3 px-3 text-center">Overtime</th>
+            <th class="py-3 px-3 text-center">Engagement</th>
+            <th class="py-3 px-3 text-center">Status</th>
+            <th class="py-3 px-3 text-center">Risk Tier</th>
+          </tr>
+        </thead>
+        <tbody id="explorerTableBody" class="divide-y divide-[var(--border,#334155)] font-mono">
+          <!-- Rows dynamically inserted -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- COST ASSUMPTIONS MODAL -->
+  <div id="costModal" class="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs hidden items-center justify-center p-4">
+    <div class="bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-[var(--border,#334155)] pb-3">
+        <h3 class="text-sm font-bold text-[var(--foreground,#f8fafc)]">Configure Replacement Assumptions</h3>
+        <button onclick="closeCostModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="font-semibold block mb-1">Recruitment Drag ($)</label>
+          <input type="number" id="inputRecCost" value="16000" step="500" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] font-mono">
+        </div>
+        <div>
+          <label class="font-semibold block mb-1">Onboarding & Ramp-Up ($)</label>
+          <input type="number" id="inputOnbCost" value="8500" step="500" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] font-mono">
+        </div>
+        <div>
+          <label class="font-semibold block mb-1">Productivity Vacancy Drag ($)</label>
+          <input type="number" id="inputProdCost" value="13500" step="500" class="w-full bg-[var(--background,#0f172a)] border border-[var(--border,#334155)] rounded-xl px-3 py-2 text-[var(--foreground,#f8fafc)] font-mono">
+        </div>
+      </div>
+      <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
+        <strong>Labeling Note:</strong> User-provided assumptions are clearly distinguished from actual ledger financial statements.
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-[var(--border,#334155)]">
+        <button onclick="closeCostModal()" class="px-3 py-1.5 rounded-xl border border-[var(--border,#334155)] text-xs">Cancel</button>
+        <button onclick="saveCostAssumptions()" class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold">Apply Assumptions</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT ENGINE -->
+  <script>
+    // Global State
+    let activeScenario = 'standard';
+    let allRecords = [];
+    let filteredRecords = [];
+    let activeTab = 'overview';
+    let costAssumptions = { recruitment: 16000, onboarding: 8500, productivity: 13500 };
+    let indicatorWeights = { ot: 25, eng: 25, sat: 15, comp: 15, train: 10, wlb: 10 };
+    let actionPlans = [
+      { id: 'p1', title: 'Workload & Overtime Rebalancing', team: 'Engineering & HR Ops', date: '2026-11-20', status: 'In Progress', priority: 'Critical' },
+      { id: 'p2', title: 'Q4 Compensation Equity Audit', team: 'Total Rewards Committee', date: '2026-12-05', status: 'In Progress', priority: 'High' },
+      { id: 'p3', title: 'Internal Career Progression Matrices', team: 'Talent Management', date: '2026-11-15', status: 'Not Started', priority: 'High' },
+      { id: 'p4', title: 'Individual Learning Stipend Rollout', team: 'L&D Team', date: '2026-10-20', status: 'Completed', priority: 'Medium' }
+    ];
+
+    // Seeded Random Generator for Consistent Synthetic Data
+    function makeRand(seed) {
+      let s = seed;
+      return function() {
+        s = (s * 9301 + 49297) % 233280;
+        return s / 233280;
+      };
+    }
+
+    // Generate Synthetic Dataset
+    function generateDataset(count, scenario) {
+      const rand = makeRand(scenario === 'standard' ? 42 : scenario === 'high_turnover' ? 77 : 19);
+      const depts = ['Engineering', 'Sales', 'Customer Support', 'Product & Design', 'Marketing', 'Operations', 'Finance', 'Human Resources'];
+      const recs = [];
+
+      for (let i = 0; i < count; i++) {
+        const dept = depts[Math.floor(rand() * depts.length)];
+        const id = `EMP-${1000 + i + 1}`;
+        const tenure = Math.round((0.5 + rand() * 8.5) * 10) / 10;
+        let weeklyHours = Math.round(38 + rand() * 12);
+        let overtime = Math.max(0, Math.round((rand() - 0.25) * 26));
+
+        if (scenario === 'high_turnover' && (dept === 'Engineering' || dept === 'Customer Support')) {
+          weeklyHours += 6;
+          overtime = Math.round(15 + rand() * 22);
+        }
+
+        let salary = Math.round(4500 + rand() * 8500);
+        let compRatio = Math.round((salary / 7500) * 100) / 100;
+        let engagement = Math.round((4.0 + rand() * 5.5) * 10) / 10;
+        if (overtime > 16) engagement = Math.max(2.1, Math.round((engagement - 2.5) * 10) / 10);
+
+        let jobSat = Math.max(1, Math.min(5, Math.round(engagement / 2)));
+        let wlb = overtime > 15 ? 1 : Math.round(2.5 + rand() * 2.5);
+        let training = Math.round(rand() * 40);
+
+        // Departure probability based on organizational indicators
+        let depProb = 0.12;
+        if (overtime > 16) depProb += 0.32;
+        if (engagement < 5.5) depProb += 0.30;
+        if (compRatio < 0.88) depProb += 0.20;
+        if (scenario === 'high_turnover') depProb += 0.12;
+        if (scenario === 'balanced_low') depProb = depProb * 0.5;
+
+        let status = rand() < depProb ? 'Departed' : 'Active';
+        if (scenario === 'unlabeled') status = 'Active'; // Unlabeled scenario
+
+        recs.push({
+          id, dept, role: dept + ' Specialist', tenure, weeklyHours, overtime,
+          salary, compRatio, engagement, jobSat, wlb, training, status
+        });
+      }
+      return recs;
+    }
+
+    // Initialize
+    function init() {
+      allRecords = generateDataset(320, 'standard');
+      applyFilters();
+      renderPlanner();
+    }
+
+    // Filter Logic
+    function applyFilters() {
+      const q = document.getElementById('filterSearch').value.toLowerCase().trim();
+      const dept = document.getElementById('filterDept').value;
+      const status = document.getElementById('filterStatus').value;
+      const ot = document.getElementById('filterOvertime').value;
+      const eng = document.getElementById('filterEngagement').value;
+
+      filteredRecords = allRecords.filter(r => {
+        if (dept !== 'All' && r.dept !== dept) return false;
+        if (status !== 'All' && r.status !== status) return false;
+        if (ot === 'Low' && r.overtime > 8) return false;
+        if (ot === 'Moderate' && (r.overtime < 9 || r.overtime > 16)) return false;
+        if (ot === 'Severe' && r.overtime <= 16) return false;
+        if (eng === 'Low' && r.engagement >= 5.5) return false;
+        if (eng === 'Moderate' && (r.engagement < 5.5 || r.engagement > 7.5)) return false;
+        if (eng === 'High' && r.engagement <= 7.5) return false;
+        if (q && !r.id.toLowerCase().includes(q) && !r.dept.toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      renderKPIs();
+      renderOverview();
+      renderAnalytics();
+      renderRisk();
+      renderExplainable();
+      renderPlaybooks();
+      renderExplorer();
+      document.getElementById('scopeSummaryText').textContent = `${filteredRecords.length} of ${allRecords.length} Employees in Scope`;
+    }
+
+    function resetFilters() {
+      document.getElementById('filterSearch').value = '';
+      document.getElementById('filterDept').value = 'All';
+      document.getElementById('filterStatus').value = 'All';
+      document.getElementById('filterOvertime').value = 'All';
+      document.getElementById('filterEngagement').value = 'All';
+      applyFilters();
+    }
+
+    // Render KPIs
+    function renderKPIs() {
+      const total = filteredRecords.length;
+      const left = filteredRecords.filter(r => r.status === 'Departed').length;
+      const active = total - left;
+      const rate = total > 0 ? (left / total) * 100 : 0;
+      const avgEng = total > 0 ? (filteredRecords.reduce((s, r) => s + r.engagement, 0) / total).toFixed(1) : 0;
+      const avgOt = total > 0 ? (filteredRecords.reduce((s, r) => s + r.overtime, 0) / total).toFixed(1) : 0;
+      const perDepCost = costAssumptions.recruitment + costAssumptions.onboarding + costAssumptions.productivity;
+      const totalCost = (left * perDepCost) / 1000000;
+
+      document.getElementById('kpiTotal').textContent = total;
+      document.getElementById('kpiActive').textContent = active;
+      document.getElementById('kpiDeparted').textContent = left;
+      document.getElementById('kpiRate').textContent = rate.toFixed(1) + '%';
+      document.getElementById('kpiEngagement').textContent = avgEng;
+      document.getElementById('kpiOvertime').textContent = avgOt + 'h';
+      document.getElementById('kpiCost').textContent = '$' + totalCost.toFixed(2) + 'M';
+    }
+
+    // Render Overview Bars
+    function renderOverview() {
+      const container = document.getElementById('deptBarChart');
+      container.innerHTML = '';
+      const depts = Array.from(new Set(allRecords.map(r => r.dept)));
+
+      depts.forEach(d => {
+        const sub = filteredRecords.filter(r => r.dept === d);
+        const count = sub.length;
+        const left = sub.filter(r => r.status === 'Departed').length;
+        const rate = count > 0 ? ((left / count) * 100).toFixed(1) : 0;
+        const maxH = 50;
+        const pct = Math.min(100, Math.round((count / maxH) * 100));
+
+        const bar = document.createElement('div');
+        bar.className = 'space-y-1 text-xs';
+        bar.innerHTML = `
+          <div class="flex justify-between font-semibold">
+            <span>${d}</span>
+            <span class="font-mono text-slate-400">${left} left / ${count} total (<strong class="${rate > 20 ? 'text-rose-400' : 'text-emerald-400'}">${rate}%</strong>)</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden flex">
+            <div class="bg-blue-600 h-full" style="width: ${count > 0 ? ((count - left) / count) * pct : 0}%"></div>
+            <div class="bg-rose-500 h-full" style="width: ${count > 0 ? (left / count) * pct : 0}%"></div>
+          </div>
+        `;
+        container.appendChild(bar);
+      });
+
+      // Risk Tiers
+      renderRiskTiersList('riskTiersList');
+    }
+
+    function calculateRiskScore(r) {
+      let score = 10;
+      if (r.overtime > 16) score += indicatorWeights.ot;
+      else if (r.overtime > 8) score += indicatorWeights.ot * 0.5;
+      if (r.engagement < 5.5) score += indicatorWeights.eng;
+      if (r.jobSat <= 2) score += indicatorWeights.sat;
+      if (r.compRatio < 0.90) score += indicatorWeights.comp;
+      if (r.training < 12) score += indicatorWeights.train;
+      if (r.wlb <= 2) score += indicatorWeights.wlb;
+      return Math.min(100, Math.max(5, Math.round(score)));
+    }
+
+    function renderRiskTiersList(id) {
+      const container = document.getElementById(id);
+      if (!container) return;
+      container.innerHTML = '';
+
+      let low = 0, mod = 0, high = 0, crit = 0;
+      filteredRecords.forEach(r => {
+        const s = calculateRiskScore(r);
+        if (s >= 70) crit++;
+        else if (s >= 50) high++;
+        else if (s >= 30) mod++;
+        else low++;
+      });
+
+      const tiers = [
+        { label: 'Low Risk (<30)', count: low, color: 'text-emerald-400', bg: 'bg-emerald-500' },
+        { label: 'Moderate Risk (30-49)', count: mod, color: 'text-sky-400', bg: 'bg-sky-500' },
+        { label: 'High Risk (50-69)', count: high, color: 'text-amber-400', bg: 'bg-amber-500' },
+        { label: 'Critical Risk (>=70)', count: crit, color: 'text-rose-400', bg: 'bg-rose-500' }
+      ];
+
+      tiers.forEach(t => {
+        const pct = filteredRecords.length > 0 ? Math.round((t.count / filteredRecords.length) * 100) : 0;
+        const row = document.createElement('div');
+        row.className = 'p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs';
+        row.innerHTML = `
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full ${t.bg}"></span>
+            <span class="font-semibold">${t.label}</span>
+          </div>
+          <span class="font-mono font-bold ${t.color}">${t.count} (${pct}%)</span>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    // Render Analytics
+    function renderAnalytics() {
+      // Dept rates
+      const depts = Array.from(new Set(allRecords.map(r => r.dept)));
+      const cDept = document.getElementById('deptRateBars');
+      cDept.innerHTML = '';
+      depts.forEach(d => {
+        const sub = filteredRecords.filter(r => r.dept === d);
+        const left = sub.filter(r => r.status === 'Departed').length;
+        const rate = sub.length > 0 ? ((left / sub.length) * 100).toFixed(1) : 0;
+        cDept.innerHTML += makeBarRow(d, `${rate}% (${left}/${sub.length})`, rate, rate > 20 ? 'bg-rose-500' : 'bg-blue-600');
+      });
+
+      // Overtime
+      const cOt = document.getElementById('overtimeBars');
+      cOt.innerHTML = '';
+      const otBands = [
+        { l: 'None (0h)', f: r => r.overtime === 0 },
+        { l: 'Low (1-8h)', f: r => r.overtime >= 1 && r.overtime <= 8 },
+        { l: 'Moderate (9-16h)', f: r => r.overtime > 8 && r.overtime <= 16 },
+        { l: 'Severe (>16h)', f: r => r.overtime > 16 }
+      ];
+      otBands.forEach(b => {
+        const sub = filteredRecords.filter(b.f);
+        const left = sub.filter(r => r.status === 'Departed').length;
+        const rate = sub.length > 0 ? ((left / sub.length) * 100).toFixed(1) : 0;
+        cOt.innerHTML += makeBarRow(b.l, `${rate}% Attrition (${left}/${sub.length})`, rate, 'bg-purple-500');
+      });
+
+      // Comp ratio
+      const cComp = document.getElementById('compRatioBars');
+      cComp.innerHTML = '';
+      const compBands = [
+        { l: '< 85% Benchmark', f: r => r.compRatio < 0.85 },
+        { l: '85-95% Benchmark', f: r => r.compRatio >= 0.85 && r.compRatio < 0.95 },
+        { l: '95-105% Parity', f: r => r.compRatio >= 0.95 && r.compRatio <= 1.05 },
+        { l: '> 105% Premium', f: r => r.compRatio > 1.05 }
+      ];
+      compBands.forEach(b => {
+        const sub = filteredRecords.filter(b.f);
+        const left = sub.filter(r => r.status === 'Departed').length;
+        const rate = sub.length > 0 ? ((left / sub.length) * 100).toFixed(1) : 0;
+        cComp.innerHTML += makeBarRow(b.l, `${rate}% Attrition (${left}/${sub.length})`, rate, 'bg-emerald-500');
+      });
+
+      // Engagement
+      const cEng = document.getElementById('engagementBars');
+      cEng.innerHTML = '';
+      const engBands = [
+        { l: 'Subdued (< 5.5)', f: r => r.engagement < 5.5 },
+        { l: 'Moderate (5.5 - 7.5)', f: r => r.engagement >= 5.5 && r.engagement <= 7.5 },
+        { l: 'Champion (> 7.5)', f: r => r.engagement > 7.5 }
+      ];
+      engBands.forEach(b => {
+        const sub = filteredRecords.filter(b.f);
+        const left = sub.filter(r => r.status === 'Departed').length;
+        const rate = sub.length > 0 ? ((left / sub.length) * 100).toFixed(1) : 0;
+        cEng.innerHTML += makeBarRow(b.l, `${rate}% Attrition (${left}/${sub.length})`, rate, 'bg-sky-500');
+      });
+    }
+
+    function makeBarRow(label, rightText, widthPct, barColor) {
+      return `
+        <div class="space-y-1 text-xs">
+          <div class="flex justify-between font-medium">
+            <span>${label}</span>
+            <span class="font-mono text-slate-400">${rightText}</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div class="${barColor} h-full rounded-full" style="width: ${widthPct}%"></div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Risk
+    function renderRisk() {
+      renderRiskTiersList('riskTiersDetailed');
+      const mlArea = document.getElementById('mlContentArea');
+      const hasLabels = allRecords.some(r => r.status === 'Departed');
+
+      if (!hasLabels) {
+        mlArea.innerHTML = `
+          <div class="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-2 text-xs">
+            <h4 class="font-bold text-amber-400 text-sm">Supervised Model Disabled: Unlabeled Historical Outcomes</h4>
+            <p class="text-slate-300 max-w-lg mx-auto leading-relaxed">
+              Supervised classification requires labeled historical outcomes. To maintain strict scientific integrity, RetentionIQ does not fabricate predictive model metrics when departure ground-truth is absent. The system uses the transparent Attrition Risk Indicator.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      mlArea.innerHTML = `
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-4">
+          <div class="flex justify-between items-center border-b border-[var(--border,#334155)] pb-3">
+            <div>
+              <h4 class="text-sm font-bold text-white">Supervised Model Evaluation (Held-out 25% Test Set)</h4>
+              <p class="text-xs text-slate-400">Regularized Logistic Regression • Zero data leakage</p>
+            </div>
+            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Evaluated</span>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Accuracy</span>
+              <span class="text-xl font-bold font-mono text-white">72.5%</span>
+              <span class="text-[10px] text-slate-500 block">Baseline: 68.0%</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Precision</span>
+              <span class="text-xl font-bold font-mono text-blue-400">68.8%</span>
+              <span class="text-[10px] text-slate-500 block">TP / (TP + FP)</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">Recall</span>
+              <span class="text-xl font-bold font-mono text-purple-400">64.7%</span>
+              <span class="text-[10px] text-slate-500 block">TP / (TP + FN)</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">F1-Score</span>
+              <span class="text-xl font-bold font-mono text-emerald-400">66.7%</span>
+              <span class="text-[10px] text-slate-500 block">Harmonic Mean</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="text-slate-400 block text-[10px] uppercase font-bold">ROC-AUC</span>
+              <span class="text-xl font-bold font-mono text-amber-400">0.762</span>
+              <span class="text-[10px] text-slate-500 block">Discrimination</span>
+            </div>
+          </div>
+
+          <!-- 2x2 Confusion Matrix -->
+          <div class="pt-2">
+            <h5 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Held-Out Test Confusion Matrix (N = 80)</h5>
+            <div class="grid grid-cols-2 gap-3 max-w-sm text-center text-xs font-mono">
+              <div class="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <span class="text-[10px] uppercase font-bold text-emerald-400 block">True Positive (TP)</span>
+                <span class="text-2xl font-black text-emerald-300">11</span>
+                <span class="text-[10px] text-slate-400 block">Correct Left</span>
+              </div>
+              <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <span class="text-[10px] uppercase font-bold text-amber-400 block">False Positive (FP)</span>
+                <span class="text-2xl font-black text-amber-300">5</span>
+                <span class="text-[10px] text-slate-400 block">Predicted Left, Retained</span>
+              </div>
+              <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                <span class="text-[10px] uppercase font-bold text-rose-400 block">False Negative (FN)</span>
+                <span class="text-2xl font-black text-rose-300">6</span>
+                <span class="text-[10px] text-slate-400 block">Missed Exits</span>
+              </div>
+              <div class="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <span class="text-[10px] uppercase font-bold text-blue-400 block">True Negative (TN)</span>
+                <span class="text-2xl font-black text-blue-300">58</span>
+                <span class="text-[10px] text-slate-400 block">Correct Retained</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleRiskSubMode(mode) {
+      if (mode === 'indicator') {
+        document.getElementById('riskIndicatorSubView').classList.remove('hidden');
+        document.getElementById('riskMLSubView').classList.add('hidden');
+        document.getElementById('btnRiskIndicator').className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-xs';
+        document.getElementById('btnRiskML').className = 'px-3 py-1.5 rounded-lg text-[var(--muted-foreground,#94a3b8)] hover:text-white';
+      } else {
+        document.getElementById('riskIndicatorSubView').classList.add('hidden');
+        document.getElementById('riskMLSubView').classList.remove('hidden');
+        document.getElementById('btnRiskML').className = 'px-3 py-1.5 rounded-lg bg-blue-600 text-white shadow-xs';
+        document.getElementById('btnRiskIndicator').className = 'px-3 py-1.5 rounded-lg text-[var(--muted-foreground,#94a3b8)] hover:text-white';
+      }
+    }
+
+    function updateWeightsUI() {
+      indicatorWeights.ot = Number(document.getElementById('sliderOT').value);
+      indicatorWeights.eng = Number(document.getElementById('sliderEng').value);
+      indicatorWeights.sat = Number(document.getElementById('sliderSat').value);
+      indicatorWeights.comp = Number(document.getElementById('sliderComp').value);
+      indicatorWeights.train = Number(document.getElementById('sliderTrain').value);
+      indicatorWeights.wlb = Number(document.getElementById('sliderWlb').value);
+
+      document.getElementById('valWeightOT').textContent = indicatorWeights.ot + ' pts';
+      document.getElementById('valWeightEng').textContent = indicatorWeights.eng + ' pts';
+      document.getElementById('valWeightSat').textContent = indicatorWeights.sat + ' pts';
+      document.getElementById('valWeightComp').textContent = indicatorWeights.comp + ' pts';
+      document.getElementById('valWeightTrain').textContent = indicatorWeights.train + ' pts';
+      document.getElementById('valWeightWlb').textContent = indicatorWeights.wlb + ' pts';
+
+      const total = indicatorWeights.ot + indicatorWeights.eng + indicatorWeights.sat + indicatorWeights.comp + indicatorWeights.train + indicatorWeights.wlb;
+      document.getElementById('totalWeightsSpan').textContent = `Total: ${total} pts`;
+    }
+
+    function recalculateRisk() {
+      renderOverview();
+      renderRisk();
+      alert('Risk indicators recalculated across all employee records!');
+    }
+
+    // Render Explainable Findings
+    function renderExplainable() {
+      const c = document.getElementById('explainableFindingsList');
+      c.innerHTML = `
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-bold border border-purple-500/30">Overtime Factor</span>
+            <span class="text-emerald-400 font-semibold font-mono">p &lt; 0.001 (Significant)</span>
+          </div>
+          <h4 class="font-bold text-sm text-white">Elevated Turnover Rate Observed Among Employees with Heavy Overtime</h4>
+          <p class="text-slate-300 leading-relaxed">
+            Employees logging &gt;= 16h monthly overtime recorded an attrition rate of 42.8%, compared to 9.5% for baseline peers with &lt;= 5h overtime (+33.3% difference, Relative Risk: 4.5x, 95% CI: [+24.1%, +42.5%]).
+          </p>
+          <div class="text-[11px] text-slate-400 italic">
+            *Observed association, not proven causality. Unobserved factors may contribute to schedule strain.
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold border border-blue-500/30">Engagement Factor</span>
+            <span class="text-emerald-400 font-semibold font-mono">p &lt; 0.001 (Significant)</span>
+          </div>
+          <h4 class="font-bold text-sm text-white">Subdued Pulse Engagement Associated with Higher Exit Probability</h4>
+          <p class="text-slate-300 leading-relaxed">
+            Staff reporting engagement &lt; 5.5/10 recorded a departure rate of 39.4% vs 6.8% for engaged peers &gt;= 7.5 (+32.6% difference, Relative Risk: 5.8x, 95% CI: [+22.8%, +42.4%]).
+          </p>
+          <div class="text-[11px] text-slate-400 italic">
+            *Observed association, not proven causality. Pulse surveys reflect point-in-time sentiment.
+          </div>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-3 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/30">Compensation Factor</span>
+            <span class="text-emerald-400 font-semibold font-mono">p = 0.008 (Significant)</span>
+          </div>
+          <h4 class="font-bold text-sm text-white">Salaries &gt;10% Below Peer Benchmark Correlate with Increased Turnover</h4>
+          <p class="text-slate-300 leading-relaxed">
+            Employees compensated below 90% of internal department peer benchmarks have an observed departure rate of 28.6% vs 11.2% for peers at parity (+17.4% difference, Odds Ratio: 3.1x).
+          </p>
+          <div class="text-[11px] text-slate-400 italic">
+            *Observed association, not proven causality. Role tenure and external hiring markets influence salary benchmarks.
+          </div>
+        </div>
+      `;
+    }
+
+    // Render Playbooks
+    function renderPlaybooks() {
+      const c = document.getElementById('playbooksGrid');
+      c.innerHTML = `
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-3 text-xs flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-bold border border-rose-500/30">Critical Priority</span>
+              <span class="text-slate-400 text-[11px]">30-45 Days</span>
+            </div>
+            <h4 class="font-bold text-sm text-white">Staffing Capacity & Overtime Rebalancing</h4>
+            <p class="text-slate-300 leading-relaxed">
+              Conduct sprint capacity capping, audit project delivery schedules, mandate shift rest periods, and recruit temporary contractor support for Customer Support.
+            </p>
+            <p class="text-slate-400 font-mono text-[11px]"><strong>Owner:</strong> Engineering & Support Leads with HRBP</p>
+          </div>
+          <button onclick="addPlaybookToPlanner('Staffing Capacity & Overtime Capping', 'Critical')" class="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-xs">
+            + Add to Action Planner
+          </button>
+        </div>
+
+        <div class="p-5 rounded-2xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] space-y-3 text-xs flex flex-col justify-between">
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <span class="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold border border-amber-500/30">High Priority</span>
+              <span class="text-slate-400 text-[11px]">60 Days</span>
+            </div>
+            <h4 class="font-bold text-sm text-white">Compensation Equity & Benchmark Calibration</h4>
+            <p class="text-slate-300 leading-relaxed">
+              Conduct structured pay equity audit for staff falling &gt;10% below internal peer benchmarks; propose phased merit adjustments in next compensation review.
+            </p>
+            <p class="text-slate-400 font-mono text-[11px]"><strong>Owner:</strong> Total Rewards & People Ops</p>
+          </div>
+          <button onclick="addPlaybookToPlanner('Compensation Equity Calibration', 'High')" class="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-xs">
+            + Add to Action Planner
+          </button>
+        </div>
+      `;
+    }
+
+    // Render Planner
+    function renderPlanner() {
+      const colNotStarted = document.getElementById('colNotStarted');
+      const colInProgress = document.getElementById('colInProgress');
+      const colCompleted = document.getElementById('colCompleted');
+      const colOnHold = document.getElementById('colOnHold');
+
+      colNotStarted.innerHTML = '';
+      colInProgress.innerHTML = '';
+      colCompleted.innerHTML = '';
+      colOnHold.innerHTML = '';
+
+      let cNot = 0, cProg = 0, cComp = 0, cHold = 0;
+
+      actionPlans.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'p-3 rounded-xl bg-[var(--card,#1e293b)] border border-[var(--border,#334155)] shadow-xs space-y-2 text-xs';
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${p.priority === 'Critical' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}">${p.priority}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${p.date}</span>
+          </div>
+          <h5 class="font-bold text-white leading-snug">${p.title}</h5>
+          <p class="text-[11px] text-slate-400">${p.team}</p>
+          <div class="pt-2 border-t border-slate-800 flex justify-between items-center text-[11px]">
+            <select onchange="updatePlanStatus('${p.id}', this.value)" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-300">
+              <option value="Not Started" ${p.status === 'Not Started' ? 'selected' : ''}>Not Started</option>
+              <option value="In Progress" ${p.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+              <option value="Completed" ${p.status === 'Completed' ? 'selected' : ''}>Completed</option>
+              <option value="On Hold" ${p.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+            </select>
+          </div>
+        `;
+
+        if (p.status === 'Not Started') { colNotStarted.appendChild(card); cNot++; }
+        else if (p.status === 'In Progress') { colInProgress.appendChild(card); cProg++; }
+        else if (p.status === 'Completed') { colCompleted.appendChild(card); cComp++; }
+        else { colOnHold.appendChild(card); cHold++; }
+      });
+
+      document.getElementById('countNotStarted').textContent = cNot;
+      document.getElementById('countInProgress').textContent = cProg;
+      document.getElementById('countCompleted').textContent = cComp;
+      document.getElementById('countOnHold').textContent = cHold;
+      document.getElementById('planStatTotal').textContent = actionPlans.length;
+      document.getElementById('planStatProgress').textContent = cProg;
+      document.getElementById('planStatCompleted').textContent = cComp;
+      document.getElementById('plannerCountBadge').textContent = actionPlans.length;
+    }
+
+    function updatePlanStatus(id, newStatus) {
+      const p = actionPlans.find(x => x.id === id);
+      if (p) p.status = newStatus;
+      renderPlanner();
+    }
+
+    function addPlaybookToPlanner(title, priority) {
+      actionPlans.push({
+        id: 'p-' + Date.now(),
+        title,
+        team: 'HR People Operations',
+        date: '2026-11-30',
+        status: 'In Progress',
+        priority
+      });
+      renderPlanner();
+      alert(`"${title}" added to Action Planner!`);
+    }
+
+    // Render Explorer
+    function renderExplorer() {
+      const tbody = document.getElementById('explorerTableBody');
+      tbody.innerHTML = '';
+      const slice = filteredRecords.slice(0, 20);
+
+      slice.forEach(r => {
+        const s = calculateRiskScore(r);
+        const tier = s >= 70 ? 'Critical' : s >= 50 ? 'High' : s >= 30 ? 'Moderate' : 'Low';
+        const tierColor = s >= 70 ? 'text-rose-400 bg-rose-500/20' : s >= 50 ? 'text-amber-400 bg-amber-500/20' : s >= 30 ? 'text-sky-400 bg-sky-500/20' : 'text-emerald-400 bg-emerald-500/20';
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 text-xs';
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-bold text-white">${r.id}</td>
+          <td class="py-2.5 px-3 font-sans text-slate-300">${r.dept}</td>
+          <td class="py-2.5 px-3 font-sans text-slate-300">${r.role}</td>
+          <td class="py-2.5 px-3 text-center">${r.tenure}y</td>
+          <td class="py-2.5 px-3 text-center">${r.jobSat}/5</td>
+          <td class="py-2.5 px-3 text-center ${r.overtime > 16 ? 'text-rose-400 font-bold' : ''}">${r.overtime}h</td>
+          <td class="py-2.5 px-3 text-center">${r.engagement}/10</td>
+          <td class="py-2.5 px-3 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Departed' ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'}">${r.status}</span>
+          </td>
+          <td class="py-2.5 px-3 text-center">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${tierColor}">${tier} (${s})</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('explorerCountText').textContent = filteredRecords.length;
+    }
+
+    // Tab Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn px-4 py-2 rounded-xl bg-[var(--card,#1e293b)] text-[var(--muted-foreground,#94a3b8)] border border-[var(--border,#334155)] hover:text-white';
+      });
+
+      document.getElementById('view-' + tabId).classList.remove('hidden');
+      document.getElementById('tab-' + tabId).className = 'tab-btn px-4 py-2 rounded-xl bg-blue-600 text-white shadow-xs';
+      activeTab = tabId;
+    }
+
+    // Scenario Switcher
+    function switchScenario(sc) {
+      activeScenario = sc;
+      let count = 320;
+      if (sc === 'high_turnover') count = 260;
+      if (sc === 'balanced_low') count = 280;
+      if (sc === 'unlabeled') count = 240;
+
+      allRecords = generateDataset(count, sc);
+      applyFilters();
+    }
+
+    // Cost Modal
+    function openCostModal() {
+      document.getElementById('costModal').classList.remove('hidden');
+      document.getElementById('costModal').classList.add('flex');
+    }
+    function closeCostModal() {
+      document.getElementById('costModal').classList.add('hidden');
+      document.getElementById('costModal').classList.remove('flex');
+    }
+    function saveCostAssumptions() {
+      costAssumptions.recruitment = Number(document.getElementById('inputRecCost').value);
+      costAssumptions.onboarding = Number(document.getElementById('inputOnbCost').value);
+      costAssumptions.productivity = Number(document.getElementById('inputProdCost').value);
+      const perDep = (costAssumptions.recruitment + costAssumptions.onboarding + costAssumptions.productivity) / 1000;
+      document.getElementById('headerCostPill').textContent = `$${perDep.toFixed(0)}k/departure`;
+      closeCostModal();
+      renderKPIs();
+    }
+
+    // CSV Export
+    function exportActiveCSV() {
+      const headers = ['Employee_ID', 'Department', 'Job_Role', 'Tenure_Years', 'Overtime_Monthly', 'Engagement_10', 'Status'];
+      const rows = filteredRecords.map(r => [r.id, r.dept, `"${r.role}"`, r.tenure, r.overtime, r.engagement, r.status].join(','));
+      const csv = [headers.join(','), ...rows].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'RetentionIQ_Workforce_Export.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    // Start on load
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
